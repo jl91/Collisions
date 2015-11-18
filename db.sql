@@ -1,0 +1,9 @@
+
+CREATE TABLE IF NOT EXISTS `WordBruteForce`.`Words` (
+  `word` VARCHAR(250) NOT NULL,
+  `md5` VARCHAR(32) NOT NULL,
+  `sha1` VARCHAR(40) NOT NULL,
+  INDEX `word` USING BTREE (`word` ASC),
+  INDEX `md5` USING BTREE (`md5` ASC),
+  INDEX `sha1` USING BTREE(`sha1` ASC))
+ENGINE = InnoDB
