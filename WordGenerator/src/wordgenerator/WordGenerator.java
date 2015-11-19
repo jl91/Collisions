@@ -3,9 +3,12 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package wordgenerator;
+package mycollisions;
 
 import com.mysql.jdbc.exceptions.MySQLIntegrityConstraintViolationException;
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -31,40 +34,39 @@ public class WordGenerator implements Runnable {
         this.startAt = startAt;
         this.endAt = endAt;
         this.goAt = goAt;
+        connection = getConnection();
     }
 
     /**
      * @param args the command line arguments
      * @throws java.sql.SQLException
      */
-    public static void main(String[] args) throws SQLException {
+    public static void main(String[] args) throws SQLException, Exception {
 
-        WordGenerator word1 = new WordGenerator(1, 10, 256);
-//        WordGenerator word2 = new WordGenerator(11, 20, 256);
-//        WordGenerator word3 = new WordGenerator(21, 30, 256);
-//        WordGenerator word4 = new WordGenerator(31, 40, 256);
-//        WordGenerator word5 = new WordGenerator(41, 50, 256);
-//        WordGenerator word6 = new WordGenerator(51, 60, 256);
-//        WordGenerator word7 = new WordGenerator(61, 70, 256);
-//        WordGenerator word8 = new WordGenerator(71, 80, 256);
-        
+        WordGenerator word1 = new WordGenerator(47, 57, 16);
+        WordGenerator word2 = new WordGenerator(58, 68, 16);
+        WordGenerator word3 = new WordGenerator(79, 89, 16);
+        WordGenerator word4 = new WordGenerator(90, 100, 16);
+        WordGenerator word5 = new WordGenerator(101, 111, 16);
+        WordGenerator word6 = new WordGenerator(112, 122, 16);
+        WordGenerator word7 = new WordGenerator(123, 126, 16);
 
         Thread t1 = new Thread(word1);
-//        Thread t2 = new Thread(word2);
-//        Thread t3 = new Thread(word3);
-//        Thread t4 = new Thread(word4);
-//        Thread t5 = new Thread(word5);
-//        Thread t6 = new Thread(word6);
-//        Thread t7 = new Thread(word7);
+        Thread t2 = new Thread(word2);
+        Thread t3 = new Thread(word3);
+        Thread t4 = new Thread(word4);
+        Thread t5 = new Thread(word5);
+        Thread t6 = new Thread(word6);
+        Thread t7 = new Thread(word7);
 //        Thread t8 = new Thread(word8);
 
         t1.start();
-//        t2.start();
-//        t3.start();
-//        t4.start();
-//        t5.start();
-//        t6.start();
-//        t7.start();
+        t2.start();
+        t3.start();
+        t4.start();
+        t5.start();
+        t6.start();
+        t7.start();
 //        t8.start();
 
     }
@@ -73,9 +75,8 @@ public class WordGenerator implements Runnable {
 
         if (stmtInsert == null) {
 
-            String sql = "INSERT INTO Words (word, md5, sha1) values (?, md5(?), sha1(?))";
-
-            stmtInsert = getConnection().prepareStatement(sql);
+            String sql = "INSERT INTO Words (word, md5, sha1) select * from (SELECT ?, ?, sha1(?)) tmp WHERE NOT EXISTS(SELECT word FROM Words temp WHERE temp.word = ?) limit 1;";
+            stmtInsert = connection.prepareStatement(sql);
         }
         return stmtInsert;
 
@@ -87,7 +88,7 @@ public class WordGenerator implements Runnable {
 
             String sql = "select count(*) from  Words where word = ?";
 
-            stmtSelect = getConnection().prepareStatement(sql);
+            stmtSelect = connection.prepareStatement(sql);
         }
         return stmtSelect;
 
@@ -96,7 +97,7 @@ public class WordGenerator implements Runnable {
     public void generateWords() throws SQLException {
         for (int i = this.startAt; i <= this.endAt; i++) {
             String currentString = this.generateCharByASCIIIndex(i);
-
+            System.out.println(currentString);
             insert(currentString);
 
             this.generateWords(currentString);
@@ -104,8 +105,9 @@ public class WordGenerator implements Runnable {
     }
 
     public void generateWords(String s) throws SQLException {
-        for (int i = 1; i <= 255; i++) {
+        for (int i = 47; i <= 126; i++) {
             String currentString = s + this.generateCharByASCIIIndex(i);
+            System.out.println(currentString);
             insert(currentString);
             if (currentString.length() <= this.goAt) {
                 this.generateWords(currentString);
@@ -123,47 +125,51 @@ public class WordGenerator implements Runnable {
     private boolean insert(String word) throws SQLException {
 
         try {
-            PreparedStatement stmt1 = getStatementSelect();
-            stmt1.setString(1, word);
 
-            stmt1.execute();
-            ResultSet result = stmt1.getResultSet();
-            if (!result.next()) {
+            String md5 = getMD5(word);
 
-                PreparedStatement stmt2 = getStatementInsert();
-                stmt2.setString(1, word);
-                stmt2.setString(2, word);
-                stmt2.setString(3, word);
-                return stmt2.execute();
-            }
-            return false;
+            PreparedStatement stmt2 = getStatementInsert();
+            stmt2.setString(1, word);
+            stmt2.setString(2, md5);
+            stmt2.setString(3, word);
+            stmt2.setString(4, word);
+            return stmt2.execute();
+
         } catch (MySQLIntegrityConstraintViolationException ex) {
 //            Logger.getLogger(WordGenerator.class.getName()).log(Level.SEVERE, null, ex);
-
-            return true;
         } catch (Exception ex) {
-            Logger.getLogger(WordGenerator.class.getName()).log(Level.SEVERE, null, ex);
-            return true;
+//            Logger.getLogger(WordGenerator.class.getName()).log(Level.SEVERE, null, ex);
         }
+        return true;
+    }
+
+    public static String getMD5(String s) throws Exception {
+        byte[] bytes = s.getBytes();
+
+        MessageDigest m = MessageDigest.getInstance("MD5");
+        byte[] digest = m.digest(bytes);
+        BigInteger bi = new BigInteger(1, digest);
+        String hash = String.format("%0" + (digest.length << 1) + "X", bi);
+
+        return hash;
     }
 
     private static Connection getConnection() {
 
         try {
-            if (connection == null) {
-                // Carregando o JDBC Driver padrão  
-                String driverName = "com.mysql.jdbc.Driver";
-                Class.forName(driverName);
-                // Configurando a nossa conexão com um banco de dados//  
-                String serverName = "127.0.0.1:3306";
-                //caminho do servidor do BD  
-                String mydatabase = "WordBruteForce";
-                //nome do seu banco de dados  
-                String url = "jdbc:mysql://" + serverName + "/" + mydatabase;
-                String username = "root";        //nome de um usuário de seu BD        
-                String password = "";      //sua senha de acesso  
-                connection = DriverManager.getConnection(url, username, password);
-            }
+            // Carregando o JDBC Driver padrão  
+            String driverName = "com.mysql.jdbc.Driver";
+            Class.forName(driverName);
+            // Configurando a nossa conexão com um banco de dados//  
+            String serverName = "127.0.0.1:3306";
+            //caminho do servidor do BD  
+            String mydatabase = "Collisions";
+            //nome do seu banco de dados  
+            String url = "jdbc:mysql://" + serverName + "/" + mydatabase + "?useUnicode=yes&;characterEncoding=utf8";
+            String username = "root";        //nome de um usuário de seu BD        
+            String password = "progiro01";      //sua senha de acesso  
+            connection = DriverManager.getConnection(url, username, password);
+
             return connection;
 
         } catch (ClassNotFoundException e) {  //Driver não encontrado  
