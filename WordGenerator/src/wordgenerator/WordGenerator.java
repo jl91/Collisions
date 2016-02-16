@@ -167,7 +167,7 @@ public class WordGenerator implements Runnable {
             //nome do seu banco de dados  
             String url = "jdbc:mysql://" + serverName + "/" + mydatabase + "?useUnicode=yes&;characterEncoding=utf8";
             String username = "root";        //nome de um usuário de seu BD        
-            String password = "progiro01";      //sua senha de acesso  
+            String password = "password";      //sua senha de acesso  
             connection = DriverManager.getConnection(url, username, password);
 
             return connection;
